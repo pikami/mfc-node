@@ -14,7 +14,7 @@
       pointer-events: none;
     }
 
-    [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak, .ng-hide {
+    [ng\:cloak], [ng-cloak], [data-ng-cloak], [x-ng-cloak], .ng-cloak, .x-ng-cloak {
       display: none !important;
     }
 
@@ -157,35 +157,6 @@
         flex-grow: 0;
       }
     }
-
-    .backdrop {
-      position: fixed;
-      top: 0; right: 0; bottom: 0; left: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .mdl-card {
-      width: 320px;
-    }
-
-    .mdl-card__menu {
-      color: #fff;
-    }
-
-    .snapshot {
-      border: none;
-      width: 320px;
-      height: 240px;
-    }
-
-    .record {
-      color: rgb(255,82,82);
-    }
-
   </style>
 </head>
 <body ng-controller="AppController as vm">
@@ -225,12 +196,13 @@
               <th class="mdl-data-table__cell--non-numeric" ng-click="vm.sort('missmfc')" ng-class="vm.sortType == 'missmfc' ? ('mdl-data-table__header--sorted-' + (vm.sortReverse ? 'ascending' : 'descending') ) : ''">Miss MFC</th>
               <th class="mdl-data-table__cell--non-numeric" ng-click="vm.sort('new_model')" ng-class="vm.sortType == 'new_model' ? ('mdl-data-table__header--sorted-' + (vm.sortReverse ? 'ascending' : 'descending') ) : ''">New</th>
               <th ng-click="vm.sort('rc')" ng-class="vm.sortType == 'rc' ? ('mdl-data-table__header--sorted-' + (vm.sortReverse ? 'ascending' : 'descending') ) : ''">Viewers</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
-            <tr ng-repeat="model in vm.models" ng-class="model.color">
+            <tr ng-repeat="model in vm.models | filter: vm.filter | orderBy:vm.sortType:vm.sortReverse" ng-class="model.color">
               <td class="mdl-data-table__cell--non-numeric">
-                <a class="mdl-color-text--blue-800" target="_blank" ng-click="vm.viewModel(model)" ng-bind="::model.nm"></a>
+                <a class="mdl-color-text--blue-800" target="_blank" ng-href="https://www.myfreecams.com/#{{ model.nm }}" ng-click="vm.dump(model)" ng-bind="::model.nm"></a>
               </td>
               <td ng-bind="::model.age"></td>
               <td class="mdl-data-table__cell--non-numeric" ng-bind="::model.state"></td>
@@ -240,6 +212,17 @@
               <td class="mdl-data-table__cell--non-numeric"><i class="material-icons mdi-24 mdl-color-text--amber-500" ng-bind="::model.missmfc"></i></td>
               <td class="mdl-data-table__cell--non-numeric"><i class="material-icons mdi-24 mdl-color-text--orange-500" ng-bind="::model.new_model"></i></td>
               <td ng-bind="::model.rc"></td>
+              <td>
+                <button id="{{ 'action-list-' + model.uid }}" class="mdl-button mdl-js-button mdl-button--icon">
+                  <i class="material-icons">more_vert</i>
+                </button>
+                <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu" for="{{ 'action-list-' + model.uid }}">
+                  <li class="mdl-menu__item" ng-click="vm.includeUid(model)" ng-disabled="model.incDisabled">Include</li>
+                  <li class="mdl-menu__item mdl-menu__item--full-bleed-divider" ng-click="vm.excludeUid(model)" ng-disabled="model.excDisabled">Exclude</li>
+                  <li class="mdl-menu__item" ng-click="vm.deleteUid(model)" ng-disabled="model.delDisabled">Delete</li>
+                  <!-- <li class="mdl-menu__item" ng-click="vm.dump(model)" ng-disabled="model.delDisabled">Dump</li> -->
+                </ul>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -247,78 +230,23 @@
       <div class="padding"></div>
     </main>
   </div>
-  <div class="backdrop ng-hide" ng-hide="!vm.model" ng-click="vm.viewModel(null)">
-    <div class="mdl-card mdl-shadow--8dp" onclick="stopPropogate(event)">
-      <img class="snapshot" ng-src="{{ vm.snapshot }}" alt=""/>
-      <div class="mdl-card__supporting-text">
-        <h2 class="mdl-card__title-text">{{ vm.model.nm }}</h2>
-        <table>
-          <tr><td style="width:120px">Age</td><td>{{ vm.model.age || '-' }}</td></tr>
-          <tr><td>State</td><td>{{ vm.model.state }}</td></tr>
-          <tr><td>City</td><td>{{ vm.model.city || '-' }}</td></tr>
-          <tr><td>Country</td><td>{{ vm.model.country || '-' }}</td></tr>
-          <tr><td>Camscore</td><td>{{ vm.model.camscore }}</td></tr>
-          <tr><td>Miss MFC</td><td>{{ vm.model.missmfc ? 'Yes' : 'No' }}</td></tr>
-          <tr><td>New model</td><td>{{ vm.model.new_model ? 'Yes' : 'No' }}</td></tr>
-          <tr><td>Viewers</td><td>{{ vm.model.rc }}</td></tr>
-        </table>
-      </div>
-      <div class="mdl-card__actions mdl-card--border">
-        <a id="prev" class="mdl-button mdl-js-button mdl-button--icon" ng-click="vm.prev()"><i class="material-icons">chevron_left</i></a>
-        <a id="inc" class="mdl-button mdl-js-button mdl-button--icon record" ng-click="vm.includeUid()" ng-disabled="vm.model.incDisabled"><i class="material-icons">fiber_manual_record</i></a>
-        <a id="exc" class="mdl-button mdl-js-button mdl-button--icon" ng-click="vm.excludeUid()" ng-disabled="vm.model.excDisabled"><i class="material-icons">stop</i></a>
-        <a id="del" class="mdl-button mdl-js-button mdl-button--icon" ng-click="vm.deleteUid()" ng-disabled="vm.model.delDisabled"><i class="material-icons">delete</i></a>
-        <a id="next" class="mdl-button mdl-js-button mdl-button--icon" ng-click="vm.next()"><i class="material-icons">chevron_right</i></a>
-        <div class="mdl-tooltip mdl-tooltip--top" data-mdl-for="prev">Previous model</div>
-        <div class="mdl-tooltip mdl-tooltip--top" data-mdl-for="inc">Include to the list of models you want to record</div>
-        <div class="mdl-tooltip mdl-tooltip--top" data-mdl-for="exc">Exclude from the list of models you want to record</div>
-        <div class="mdl-tooltip mdl-tooltip--top" data-mdl-for="del">Delete</div>
-        <div class="mdl-tooltip mdl-tooltip--top" data-mdl-for="next">Next model</div>
-      </div>
-      <div class="mdl-card__menu">
-        <a target="_blank" ng-href="https://www.myfreecams.com/#{{ vm.model.nm }}" class="mdl-button mdl-button--icon mdl-js-button mdl-js-ripple-effect">
-          <i class="material-icons">open_in_new</i>
-        </a>
-      </div>
-    </div>
-  </div>
 
   <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
-  <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.11/angular.min.js"></script>
+  <script src="https://code.angularjs.org/1.5.11/angular.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.8.3/underscore-min.js"></script>
 
   <script>
-    function stopPropogate(event) {
-      event.stopPropagation();
-    }
-
     var app = angular.module('app', []);
 
-    app.controller('AppController', ['$timeout', '$http', '$scope', '$filter', function ($timeout, $http, $scope, $filter) {
+    app.controller('AppController', ['$timeout', '$http', '$scope', function ($timeout, $http, $scope) {
       var vm = this;
 
-      vm.serverModels = [];
       vm.models = [];
-
-      vm.model = null;
 
       vm.keyword = null;
       vm.filter = {};
       vm.sortType = 'nm';
       vm.sortReverse = false;
-
-      $scope.$watch(function () { return vm.keyword }, function (newVal, oldVal) {
-        vm.filter = !newVal ? {} : { keywords: newVal };
-
-        vm.filterAndSort();
-      }, true);
-
-      vm.clearFilter = function () {
-        vm.keyword = '';
-        vm.filter = {};
-
-        vm.filterAndSort();
-      };
 
       vm.sort = function (sortType) {
         if (vm.sortType === sortType) {
@@ -326,19 +254,6 @@
         } else {
           vm.sortType = sortType;
         }
-
-        vm.filterAndSort();
-      };
-
-
-      vm.filterAndSort = function (ready) {
-        vm.models = $filter('orderBy')($filter('filter')(vm.serverModels, vm.filter), vm.sortType, vm.sortReverse);
-
-        $timeout(function () {
-          componentHandler.upgradeAllRegistered();
-
-          vm.ready = vm.ready || ready;
-        });
       };
 
       vm.setVs = function (model) {
@@ -384,70 +299,49 @@
         model.incDisabled = model.vs === -4 || model.vs === -3;
         model.excDisabled = model.vs !== -4 && model.vs !== -3;
         model.delDisabled = model.vs === -1;
-
-        var serverModel = _.findWhere(vm.serverModels, { uid: model.uid });
-
-        if (!!serverModel) {
-          var i = vm.serverModels.indexOf(serverModel);
-          vm.serverModels[i] = model;
-        }
       };
 
-      vm.includeUid = function () {
-        $http.get('/models/include', { params: { uid: vm.model.uid } }).then(function (response) {
-          vm.model.nextMode = 1;
-          vm.setVs(vm.model);
+      vm.includeUid = function (model) {
+        $http.get('/models/include', { params: { uid: model.uid } }).then(function (response) {
+          model.nextMode = 1;
+          vm.setVs(model);
         });
       };
 
-      vm.excludeUid = function () {
-        $http.get('/models/exclude', { params: { uid: vm.model.uid } }).then(function (response) {
-          vm.model.nextMode = 0;
-          vm.setVs(vm.model);
+      vm.excludeUid = function (model) {
+        $http.get('/models/exclude', { params: { uid: model.uid } }).then(function (response) {
+          model.nextMode = 0;
+          vm.setVs(model);
         });
       };
 
-      vm.deleteUid = function () {
-        $http.get('/models/delete', { params: { uid: vm.model.uid } }).then(function (response) {
-          vm.model.nextMode = -1;
-          vm.setVs(vm.model);
+      vm.deleteUid = function (model) {
+        $http.get('/models/delete', { params: { uid: model.uid } }).then(function (response) {
+          model.nextMode = -1;
+          vm.setVs(model);
         });
       };
 
-      vm.prev = function () {
-        var model = _.findWhere(vm.models, { uid: vm.model.uid });
-
-        if (!!model) {
-          var i = vm.models.indexOf(model);
-
-          vm.model = (i > 0) ? vm.models[i - 1] : vm.models[vm.models.length - 1];
-        }
+      vm.dump = function (model) {
+        console.log(model);
+        console.log('http://video' + (model.camserv - 500) + '.myfreecams.com:1935/NxServer/ngrp:mfc_' + (100000000 + model.uid) + '.f4v_mobile/playlist.m3u8?nc=' + Date.now());
       };
 
-      vm.next = function () {
-        var model = _.findWhere(vm.models, { uid: vm.model.uid });
+      $scope.$watch(function () { return vm.keyword }, function (newVal, oldVal) {
+        vm.filter = !newVal ? {} : { keywords: newVal };
 
-        if (!!model) {
-          var i = vm.models.indexOf(model);
+        $timeout(function () {
+          componentHandler.upgradeAllRegistered();
+        });
+      }, true);
 
-          vm.model = (i < (vm.models.length - 1)) ? vm.models[i + 1] : vm.models[0];
-        }
-      };
+      vm.clearFilter = function () {
+        vm.keyword = '';
+        vm.filter = {};
 
-      vm.setSnapshot = function () {
-        if (!vm.model) {
-          vm.snapshot = null;
-        } else {
-          vm.snapshot = 'https://snap.mfcimg.com/snapimg/' + (vm.model.camserv - 500) + '/320x230/mfc_' + (100000000 + vm.model.uid) + '?no-cache=' + Date.now();
-
-          $timeout(vm.setSnapshot, 1000);
-        }
-      };
-
-      vm.viewModel = function (model) {
-        vm.model = model;
-
-        vm.setSnapshot();
+        $timeout(function () {
+          componentHandler.upgradeAllRegistered();
+        });
       };
 
       vm.refresh = function () {
@@ -456,7 +350,7 @@
         $http
           .get('/models')
           .then(function (response) {
-            vm.serverModels = response.data.map(function (m) {
+            vm.models = response.data.map(function (m) {
               vm.setVs(m);
 
               m.keywords = m.nm + '\n' + m.city + '\n' + m.country;
@@ -477,7 +371,10 @@
               return m;
             });
 
-            vm.filterAndSort(true);
+            $timeout(function () {
+              componentHandler.upgradeAllRegistered();
+              vm.ready = true;
+            });
           });
       };
 

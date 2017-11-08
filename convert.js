@@ -11,6 +11,7 @@ var path = require('path');
 var moment = require('moment');
 var _ = require('underscore');
 var Queue = require('promise-queue');
+var filewalker = require('filewalker');
 
 function getCurrentDateTime() {
   return moment().format('HH:mm:ss');
@@ -39,15 +40,28 @@ mkdirp.sync(srcDirectory);
 mkdirp.sync(dstDirectory);
 
 function getFiles() {
-  return fs
-    .readdirAsync(srcDirectory)
-    .then(files => _.filter(files, file => string(file).endsWith('.ts') || string(file).endsWith('.flv')));
+  var files = [];
+
+  return new Promise((resolve, reject) => {
+    filewalker(srcDirectory, { maxPending: 1, matchRegExp: /(\.ts|\.flv)$/ })
+      .on('file', p => {
+        // select only "not hidden" files
+        if (!p.match(/(^\.|\/\.)/)) {
+          // push path relative to srcDirectory
+          files.push(p);
+        }
+      })
+      .on('done', () => {
+        resolve(files);
+      })
+      .walk();
+  });
 }
 
 function getTsSpawnArguments(srcFile, dstFile) {
   return [
     '-i',
-    srcDirectory + '/' + srcFile,
+    srcFile,
     '-y',
     '-hide_banner',
     '-loglevel',
@@ -59,14 +73,14 @@ function getTsSpawnArguments(srcFile, dstFile) {
     '-bsf:a',
     'aac_adtstoasc',
     '-copyts',
-    dstDirectory + '/~' + dstFile
+    dstFile
   ];
 }
 
 function getFlvSpawnArguments(srcFile, dstFile) {
   return [
     '-i',
-    srcDirectory + '/' + srcFile,
+    srcFile,
     '-y',
     '-hide_banner',
     '-loglevel',
@@ -79,23 +93,33 @@ function getFlvSpawnArguments(srcFile, dstFile) {
     '-2',
     '-q:a',
     '100',
-    dstDirectory + '/~' + dstFile
+    dstFile
   ];
 }
 
 function convertFile(srcFile) {
   return new Promise((resolve, reject) => {
+    var dstPath = path.resolve(path.dirname(path.join(dstDirectory, srcFile)));
     var dstFile;
     var spawnArguments;
     var startTs = moment();
 
     if (string(srcFile).endsWith('.ts')) {
-      dstFile = string(srcFile).chompRight('ts').s + 'mp4';
-      spawnArguments = getTsSpawnArguments(srcFile, dstFile);
+      dstFile = path.basename(srcFile, '.ts') + '.mp4';
+      spawnArguments = getTsSpawnArguments(path.join(srcDirectory, srcFile), path.join(dstPath, '~' + dstFile));
     } else {
-      dstFile = string(srcFile).chompRight('flv').s + 'mp4';
-      spawnArguments = getFlvSpawnArguments(srcFile, dstFile);
+      dstFile = path.basename(srcFile, '.flv') + '.mp4';
+      spawnArguments = getFlvSpawnArguments(path.join(srcDirectory, srcFile), path.join(dstPath, '~' + dstFile));
     }
+
+    // make destination path
+    mkdirp(dstPath, err => {
+      if (err) {
+        printErrorMsg(`Failed to create ${dstPath}`);
+
+        return; // skip if we could not create a destination dir
+      }
+    });
 
     printMsg(`Starting ${colors.green(srcFile)}...`);
 
@@ -107,18 +131,18 @@ function convertFile(srcFile) {
       } else {
         Promise.try(() => {
           return config.deleteAfter
-            ? fs.unlinkAsync(srcDirectory + '/' + srcFile)
-            : fs.renameAsync(srcDirectory + '/' + srcFile, srcDirectory + '/' + srcFile + '.bak');
+            ? fs.unlinkAsync(path.join(srcDirectory, srcFile))
+            : fs.renameAsync(path.join(srcDirectory, srcFile), path.join(srcDirectory, srcFile + '.bak'));
         })
         .then(() => {
-          fs.renameAsync(dstDirectory + '/~' + dstFile, dstDirectory + '/' + dstFile);
+          fs.renameAsync(path.join(dstPath, '~' + dstFile), path.join(dstPath, dstFile));
         })
         .then(() => {
           let duration = moment.duration(moment().diff(startTs)).asSeconds().toString() + ' s';
 
           printMsg(`Finished ${colors.green(srcFile)} after ${colors.magenta(duration)}`);
 
-          resolve(srcFile);
+          resolve();
         })
         .catch(err => {
           reject(err.toString());
@@ -149,8 +173,6 @@ function mainLoop() {
             })
             .catch(err => {
               printErrorMsg(err);
-
-              reject(); // ???
             });
         });
       }
